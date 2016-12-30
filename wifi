@@ -1,0 +1,87 @@
+#include <SPI.h>
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#include <OneWire.h>
+
+OneWire  ds(2);  // an  pin 2 ESP-01, D4 in NodeMCU, (ein 4.7K resistor ist notwendig)
+
+
+const char* ssid = "++++++++++";
+const char* password = "+++++++";
+const char* mqtt_server = "+++++++++";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
+ADC_MODE(ADC_VCC);
+void setup() {
+  Serial.begin(9600);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+}
+
+void setup_wifi() {
+
+  delay(20);
+  Serial.println();
+  Serial.print("WLAN Verbunden zu ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WLAN Verbunden !");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Verbindung zu MQTT Broker...");
+    if (client.connect("ESP8266Client")) {
+      Serial.println("Verbunden !");
+      Serial.print(ESP.getVcc());
+      Serial.println(" mV Betriebsspannung");
+      client.publish("outTopic", "hello world");
+      client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+void loop()
+{
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+ 
+  client.publish("/TEMP", "1");
+  
+  client.publish("/BAT", String(ESP.getVcc()).c_str(),2);
+
+delay(5000);
+}
